@@ -15,8 +15,5 @@ resource "aws_lambda_function" "lambda" {
     }
   }
 
-  depends_on = [
-    aws_ecr_repository.ecr
-  ]
 }
 

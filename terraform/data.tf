@@ -54,5 +54,5 @@ resource "aws_iam_role_policy_attachment" "lambda_policy" {
 
 
 data "aws_ecr_repository" "ecr" {
-  name  = var.service_name
+  name = var.service_name
 }

@@ -10,7 +10,7 @@ resource "aws_lambda_function" "lambda" {
 
   environment {
     variables = {
-      user_key = var.user_key,
+      user_key  = var.user_key,
       api_token = var.api_token
     }
   }

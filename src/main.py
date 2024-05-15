@@ -45,16 +45,14 @@ def send_push_notification(user_key, api_token, message):
     conn.getresponse()
 
 
-def main():
+def lambda_handler(event, context):
     url = "https://dirtywave.com/products/m8-tracker-model-02"
     html = get_html(url)
 
     if in_stock(html):
         print("In stock")
         send_push_notification(user_key, api_token, "In stock")
-    else:
-        print("Out of stock")
-        send_push_notification(user_key, api_token, "Out of stock")
 
 
-main()
+
+lambda_handler(None, None)

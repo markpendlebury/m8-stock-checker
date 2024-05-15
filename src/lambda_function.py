@@ -7,9 +7,15 @@ def lambda_handler(event, context):
         url = "https://dirtywave.com/products/m8-tracker-model-02"
         html = get_html(url)
 
+        if event.get("test") == "True":
+            if in_stock(html):
+                send_push_notification("In stock")
+            else:
+                send_push_notification("Out of stock")
+            
+
         if in_stock(html):
             send_push_notification("In stock")
-        else:
-            send_push_notification("Out of stock")
+        
     except Exception as e:
         log_line("lambda_handler", "error", error=str(e))

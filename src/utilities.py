@@ -28,7 +28,6 @@ def log_line(event, status, **record):
     )
 
 
-
 def get_html(url):
     log_line("get_html", "start", url=url)
     r = requests.get(url)

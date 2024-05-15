@@ -28,7 +28,7 @@ jobs:
       lambdas_changed: ${{ steps.lambdas_changed.outputs.lambdas_changed }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set variable
         id: prerequisite_variables
@@ -37,7 +37,7 @@ jobs:
           echo "normalized_git_branch=${normalized_git_branch}" >> "$GITHUB_OUTPUT"
           echo "Normalized Git Branch: ${normalized_git_branch}"
 
-      - uses: dorny/paths-filter@v2
+      - uses: dorny/paths-filter@v3.0.0
         id: changes
         with:
           list-files: "escape"
@@ -72,7 +72,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -135,7 +135,7 @@ jobs:
       - lambda_tests
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -181,7 +181,7 @@ jobs:
       terraform_plan_exitcode: ${{ steps.tf_plan.outputs.terraform_plan_exitcode }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Test aws config
         run: aws sts get-caller-identity
@@ -228,7 +228,7 @@ jobs:
       - terraform_plan
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Test aws config
         run: aws sts get-caller-identity
@@ -265,7 +265,7 @@ jobs:
       - terraform_apply
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2

@@ -54,5 +54,4 @@ def lambda_handler(event, context):
         send_push_notification(user_key, api_token, "In stock")
 
 
-
 lambda_handler(None, None)

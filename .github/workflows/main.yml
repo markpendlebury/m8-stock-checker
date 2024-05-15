@@ -121,7 +121,7 @@ jobs:
 
           if [[ -f tests/test-requirements.txt ]]; then
             echo "Installing test-requirements.txt"
-            pip install -r test-requirements.txt
+            pip install -r tests/test-requirements.txt
           fi
 
           pytest .

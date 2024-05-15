@@ -274,4 +274,4 @@ jobs:
         working-directory: ${{ env.LAMBDA_DIR }}
         run: |
           aws ecr get-login-password --region ${{ vars.TF_BACKEND_REGION }} | docker login --username AWS --password-stdin ${{ vars.ACCOUNT_ID }}.dkr.ecr.${{ vars.TF_BACKEND_REGION }}.amazonaws.com  
-          aws lambda update-function-code --function-name ${{ env.APPLICATION_NAME }} --image-uri ${{ vars.ACCOUNT_ID }}.dkr.ecr.${{ vars.TF_BACKEND_REGION }}.amazonaws.com/${{ env.APPLICATION_NAME }}:latest
+          aws lambda update-function-code --function-name ${{ env.APPLICATION_NAME }}-lambda --image-uri ${{ vars.ACCOUNT_ID }}.dkr.ecr.${{ vars.TF_BACKEND_REGION }}.amazonaws.com/${{ env.APPLICATION_NAME }}:latest

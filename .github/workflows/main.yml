@@ -62,55 +62,12 @@ jobs:
 
 
 
-  terraform_plan:
-    name: "Terraform Plan"
-    runs-on: ubuntu-latest
-    env:
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
-      TF_VAR_user_key: ${{ secrets.USER_KEY }}
-      TF_VAR_api_token: ${{ secrets.API_TOKEN }}
 
-    needs:
-      - prerequisites
-    outputs:
-      terraform_plan_exitcode: ${{ steps.tf_plan.outputs.terraform_plan_exitcode }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
 
-      - name: Test aws config
-        run: aws sts get-caller-identity
-
-      - name: Terraform fmt
-        working-directory: ${{ env.TERRAFORM_DIR }}
-        id: fmt
-        run: terraform fmt -check
-        continue-on-error: true
-
-      - name: Terraform Init
-        working-directory: ${{ env.TERRAFORM_DIR }}
-        id: init
-        run: terraform init --backend-config="bucket=${{ vars.TF_BACKEND_BUCKET }}" --backend-config="key=${{ vars.TF_BACKEND_KEY }}" --backend-config="region=${{ vars.TF_BACKEND_REGION }}" -no-color
-
-      - name: Terraform Validate
-        working-directory: ${{ env.TERRAFORM_DIR }}
-        id: validate
-        run: terraform validate -no-color
-
-      - name: Terraform Plan
-        working-directory: ${{ env.TERRAFORM_DIR }}
-        id: tf_plan
-        run: terraform plan --detailed-exitcode -no-color
-        continue-on-error: true
-
-        
   lambda_tests:
     name: "Python Tests"
     needs: 
       - prerequisites
-      - terraform_apply
     runs-on: ubuntu-latest
 
     steps:
@@ -172,7 +129,6 @@ jobs:
     needs:
       - prerequisites
       - lambda_tests
-      - terraform_apply
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -205,7 +161,55 @@ jobs:
 
     
 
-          
+        
+
+  terraform_plan:
+    name: "Terraform Plan"
+    runs-on: ubuntu-latest
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+      TF_VAR_user_key: ${{ secrets.USER_KEY }}
+      TF_VAR_api_token: ${{ secrets.API_TOKEN }}
+
+    needs:
+      - prerequisites
+      - lambda_tests
+      - lambda_packaging
+    outputs:
+      terraform_plan_exitcode: ${{ steps.tf_plan.outputs.terraform_plan_exitcode }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Test aws config
+        run: aws sts get-caller-identity
+
+      - name: Terraform fmt
+        working-directory: ${{ env.TERRAFORM_DIR }}
+        id: fmt
+        run: terraform fmt -check
+        continue-on-error: true
+
+      - name: Terraform Init
+        working-directory: ${{ env.TERRAFORM_DIR }}
+        id: init
+        run: terraform init --backend-config="bucket=${{ vars.TF_BACKEND_BUCKET }}" --backend-config="key=${{ vars.TF_BACKEND_KEY }}" --backend-config="region=${{ vars.TF_BACKEND_REGION }}" -no-color
+
+      - name: Terraform Validate
+        working-directory: ${{ env.TERRAFORM_DIR }}
+        id: validate
+        run: terraform validate -no-color
+
+      - name: Terraform Plan
+        working-directory: ${{ env.TERRAFORM_DIR }}
+        id: tf_plan
+        run: terraform plan --detailed-exitcode -no-color
+        continue-on-error: true
+
+
+
 
   terraform_apply:
     name: "Terraform Apply"
@@ -219,6 +223,8 @@ jobs:
     # if: needs.terraform_plan.outputs.terraform_plan_exitcode == 2
     needs:
       - prerequisites
+      - lambda_tests
+      - lambda_packaging
       - terraform_plan
     steps:
       - name: Checkout
@@ -247,5 +253,4 @@ jobs:
         working-directory: ${{ env.TERRAFORM_DIR }}
         id: plan
         run: terraform apply --auto-approve -no-color
-
 

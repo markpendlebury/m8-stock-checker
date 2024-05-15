@@ -1,4 +1,4 @@
-# output "hello" {
-#   value = "Hello, World!"
+output "hello" {
+  value = "Hello, World!"
   
-# }
+}

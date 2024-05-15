@@ -2,7 +2,7 @@ from utilities import log_line, get_html, in_stock, send_push_notification
 
 
 def lambda_handler(event, context):
-    log_line("lambda_handler", "DEBUG", event=event)
+    log_line("lambda_handler", "DEBUG", lambda_event=event)
     try:
         url = "https://dirtywave.com/products/m8-tracker-model-02"
         html = get_html(url)

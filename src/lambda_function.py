@@ -13,5 +13,3 @@ def lambda_handler(event, context):
     except Exception as e:
         log_line("lambda_handler", "error", error=str(e))
 
-
-lambda_handler(None, None)

@@ -12,7 +12,7 @@ api_token = os.environ.get("api_token")
 loglevel = os.environ.get("LOGGING_LEVEL", logging.INFO)
 logger = logging.getLogger(__name__)
 logger.setLevel(loglevel)
-logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
+# logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
 
 
 def log_line(event, status, **record):

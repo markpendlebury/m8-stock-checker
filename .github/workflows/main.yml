@@ -105,48 +105,7 @@ jobs:
         run: terraform plan --detailed-exitcode -no-color
         continue-on-error: true
 
-  terraform_apply:
-    name: "Terraform Apply"
-    runs-on: ubuntu-latest
-    env:
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
-      TF_VAR_user_key: ${{ secrets.USER_KEY }}
-      TF_VAR_api_token: ${{ secrets.API_TOKEN }}
-    # if: needs.terraform_plan.outputs.terraform_plan_exitcode == 2
-    needs:
-      - prerequisites
-      - terraform_plan
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-
-      - name: Test aws config
-        run: aws sts get-caller-identity
-
-      - name: Terraform fmt
-        working-directory: ${{ env.TERRAFORM_DIR }}
-        id: fmt
-        run: terraform fmt -check
-        continue-on-error: true
-
-      - name: Terraform Init
-        working-directory: ${{ env.TERRAFORM_DIR }}
-        id: init
-        run: terraform init --backend-config="bucket=${{ vars.TF_BACKEND_BUCKET }}" --backend-config="key=${{ vars.TF_BACKEND_KEY }}" --backend-config="region=${{ vars.TF_BACKEND_REGION }}" -no-color
-
-      - name: Terraform Validate
-        working-directory: ${{ env.TERRAFORM_DIR }}
-        id: validate
-        run: terraform validate -no-color
-
-      - name: Terraform Apply
-        working-directory: ${{ env.TERRAFORM_DIR }}
-        id: plan
-        run: terraform apply --auto-approve -no-color
-
-
+        
   lambda_tests:
     name: "Python Tests"
     needs: 
@@ -230,11 +189,63 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: eu-west-2
 
+      - name: Create repository if not exists
+        id: create_ecr
+        run: |
+          aws ecr describe-repositories --repository-names ${{ env.APPLICATION_NAME }} || aws ecr create-repository --repository-name ${{ env.APPLICATION_NAME }}
+
       - name: Build and Push to ECR
         id: lambda_packaging
         working-directory: ${{ env.LAMBDA_DIR }}
         run: |
           aws ecr get-login-password --region ${{ vars.TF_BACKEND_REGION }} | docker login --username AWS --password-stdin ${{ vars.ACCOUNT_ID }}.dkr.ecr.${{ vars.TF_BACKEND_REGION }}.amazonaws.com  
-          docker build --platform linux/amd64 -t ${{ vars.ACCOUNT_ID }}.dkr.ecr.${{ vars.TF_BACKEND_REGION }}.amazonaws.com/ultrawide-wallpapers:latest . 
-          docker push ${{ vars.ACCOUNT_ID }}.dkr.ecr.${{ vars.TF_BACKEND_REGION }}.amazonaws.com/ultrawide-wallpapers:latest
-          aws lambda update-function-code --function-name  ultrawide-wallpapers-lambda --image-uri ${{ vars.ACCOUNT_ID }}.dkr.ecr.${{ vars.TF_BACKEND_REGION }}.amazonaws.com/ultrawide-wallpapers:latest
+          docker build --platform linux/amd64 -t ${{ vars.ACCOUNT_ID }}.dkr.ecr.${{ vars.TF_BACKEND_REGION }}.amazonaws.com/${{ env.APPLICATION_NAME }}:latest . 
+          docker push ${{ vars.ACCOUNT_ID }}.dkr.ecr.${{ vars.TF_BACKEND_REGION }}.amazonaws.com/${{ env.APPLICATION_NAME }}:latest
+          aws lambda update-function-code --function-name  ${{ env.APPLICATION_NAME }}-lambda --image-uri ${{ vars.ACCOUNT_ID }}.dkr.ecr.${{ vars.TF_BACKEND_REGION }}.amazonaws.com/${{ env.APPLICATION_NAME }}:latest
+
+    
+
+          
+
+  terraform_apply:
+    name: "Terraform Apply"
+    runs-on: ubuntu-latest
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+      TF_VAR_user_key: ${{ secrets.USER_KEY }}
+      TF_VAR_api_token: ${{ secrets.API_TOKEN }}
+    # if: needs.terraform_plan.outputs.terraform_plan_exitcode == 2
+    needs:
+      - prerequisites
+      - terraform_plan
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Test aws config
+        run: aws sts get-caller-identity
+
+      - name: Terraform fmt
+        working-directory: ${{ env.TERRAFORM_DIR }}
+        id: fmt
+        run: terraform fmt -check
+        continue-on-error: true
+
+      - name: Terraform Init
+        working-directory: ${{ env.TERRAFORM_DIR }}
+        id: init
+        run: terraform init --backend-config="bucket=${{ vars.TF_BACKEND_BUCKET }}" --backend-config="key=${{ vars.TF_BACKEND_KEY }}" --backend-config="region=${{ vars.TF_BACKEND_REGION }}" -no-color
+
+      - name: Terraform Validate
+        working-directory: ${{ env.TERRAFORM_DIR }}
+        id: validate
+        run: terraform validate -no-color
+
+      - name: Terraform Apply
+        working-directory: ${{ env.TERRAFORM_DIR }}
+        id: plan
+        run: terraform apply --auto-approve -no-color
+
+

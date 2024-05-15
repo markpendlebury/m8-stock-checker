@@ -12,4 +12,3 @@ def lambda_handler(event, context):
             send_push_notification("Out of stock")
     except Exception as e:
         log_line("lambda_handler", "error", error=str(e))
-

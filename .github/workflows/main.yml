@@ -157,12 +157,6 @@ jobs:
           docker build --platform linux/amd64 -t ${{ vars.ACCOUNT_ID }}.dkr.ecr.${{ vars.TF_BACKEND_REGION }}.amazonaws.com/${{ env.APPLICATION_NAME }}:latest . 
           docker push ${{ vars.ACCOUNT_ID }}.dkr.ecr.${{ vars.TF_BACKEND_REGION }}.amazonaws.com/${{ env.APPLICATION_NAME }}:latest
 
-          # check the lambda function exists: 
-          aws lambda get-function --function-name ${{ env.APPLICATION_NAME }}-lambda || aws lambda create-function --function-name ${{ env.APPLICATION_NAME }}-lambda --package-type Image --code ImageUri=${{ vars.ACCOUNT_ID }}.dkr.ecr.${{ vars.TF_BACKEND_REGION }}.amazonaws.com/${{ env.APPLICATION_NAME }}:latest --role arn:aws:iam::${{ vars.ACCOUNT_ID }}:role/service-role/lambda-role --timeout 30 --memory-size 256 --region ${{ vars.TF_BACKEND_REGION }} --image-config '{"Command": ["app.handler"], "WorkingDirectory": "/app"}'
-
-    
-
-        
 
   terraform_plan:
     name: "Terraform Plan"

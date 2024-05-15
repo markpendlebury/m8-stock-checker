@@ -2,7 +2,7 @@ import sys
 
 sys.path.append(".")
 
-from utilities import log_line, get_html, in_stock, send_push_notification
+from utilities import get_html, in_stock
 
 
 sold_out_html = "<html><body><button class='product-form__submit button button--full-width button--secondary'><span>Sold Out</span></button></body></html>"

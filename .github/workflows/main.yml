@@ -1,0 +1,240 @@
+name: "TF Apply"
+
+on:
+  push:
+    branches:
+      - "main"
+    paths:
+      - "terraform/**"
+      - "src/**"
+      - ".github/workflows/main.yaml"
+  workflow_dispatch:
+
+env:
+  APPLICATION_NAME: m8-stock-checker
+  TERRAFORM_DIR: terraform/
+  LAMBDA_DIR: src/
+  TF_VERSION: 1.7.0
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  prerequisites:
+    name: "Prerequisites"
+    runs-on: ubuntu-latest
+    outputs:
+      lambdas_changed: ${{ steps.lambdas_changed.outputs.lambdas_changed }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set variable
+        id: prerequisite_variables
+        run: |
+          normalized_git_branch=$(echo ${{ github.ref_name }} | tr / -)
+          echo "normalized_git_branch=${normalized_git_branch}" >> "$GITHUB_OUTPUT"
+          echo "Normalized Git Branch: ${normalized_git_branch}"
+
+      - uses: dorny/paths-filter@v2
+        id: changes
+        with:
+          list-files: "escape"
+          filters: |
+            lambda_changes:
+              - '${{ vars.LAMBDA_DIR }}**'
+
+      - name: Detect Lambda changes
+        id: lambdas_changed
+        run: |
+          lambdas_changed=()
+          for file_changed in $(echo "${{ steps.changes.outputs.lambda_changes_files }}" ); do
+            echo $file_changed
+            lambda=$(echo $file_changed | cut -d'/' -f3)
+            echo "${lambdas_changed[@]}" | grep -w "$lambda" || {
+              lambdas_changed+=($lambda)
+            }
+          done
+          lambdas_changed=$(IFS=, ; echo "${lambdas_changed[*]}")
+          echo "lambdas_changed=${lambdas_changed}"
+          echo "lambdas_changed=${lambdas_changed}" >> "$GITHUB_OUTPUT"
+
+
+
+  terraform_plan:
+    name: "Terraform Plan"
+    runs-on: ubuntu-latest
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+      TF_VAR_user_key: ${{ secrets.USER_KEY }}
+      TF_VAR_api_token: ${{ secrets.API_TOKEN }}
+
+    needs:
+      - prerequisites
+    outputs:
+      terraform_plan_exitcode: ${{ steps.tf_plan.outputs.terraform_plan_exitcode }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Test aws config
+        run: aws sts get-caller-identity
+
+      - name: Terraform fmt
+        working-directory: ${{ env.TERRAFORM_DIR }}
+        id: fmt
+        run: terraform fmt -check
+        continue-on-error: true
+
+      - name: Terraform Init
+        working-directory: ${{ env.TERRAFORM_DIR }}
+        id: init
+        run: terraform init --backend-config="bucket=${{ vars.TF_BACKEND_BUCKET }}" --backend-config="key=${{ vars.TF_BACKEND_KEY }}" --backend-config="region=${{ vars.TF_BACKEND_REGION }}" -no-color
+
+      - name: Terraform Validate
+        working-directory: ${{ env.TERRAFORM_DIR }}
+        id: validate
+        run: terraform validate -no-color
+
+      - name: Terraform Plan
+        working-directory: ${{ env.TERRAFORM_DIR }}
+        id: tf_plan
+        run: terraform plan --detailed-exitcode -no-color
+        continue-on-error: true
+
+  terraform_apply:
+    name: "Terraform Apply"
+    runs-on: ubuntu-latest
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+      TF_VAR_user_key: ${{ secrets.USER_KEY }}
+      TF_VAR_api_token: ${{ secrets.API_TOKEN }}
+    # if: needs.terraform_plan.outputs.terraform_plan_exitcode == 2
+    needs:
+      - prerequisites
+      - terraform_plan
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Test aws config
+        run: aws sts get-caller-identity
+
+      - name: Terraform fmt
+        working-directory: ${{ env.TERRAFORM_DIR }}
+        id: fmt
+        run: terraform fmt -check
+        continue-on-error: true
+
+      - name: Terraform Init
+        working-directory: ${{ env.TERRAFORM_DIR }}
+        id: init
+        run: terraform init --backend-config="bucket=${{ vars.TF_BACKEND_BUCKET }}" --backend-config="key=${{ vars.TF_BACKEND_KEY }}" --backend-config="region=${{ vars.TF_BACKEND_REGION }}" -no-color
+
+      - name: Terraform Validate
+        working-directory: ${{ env.TERRAFORM_DIR }}
+        id: validate
+        run: terraform validate -no-color
+
+      - name: Terraform Apply
+        working-directory: ${{ env.TERRAFORM_DIR }}
+        id: plan
+        run: terraform apply --auto-approve -no-color
+
+
+  lambda_tests:
+    name: "Python Tests"
+    needs: 
+      - prerequisites
+      - terraform_apply
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install black pytest
+
+          IFS=',' read -ra LAMBDA_MODULES <<< "${{ needs.prerequisites.outputs.lambdas_changed }}"
+          for module_directory in "${LAMBDA_MODULES[@]}"; do
+            pushd ${LAMBDA_DIR}
+
+            python -m venv venv
+            source venv/bin/activate
+
+            if [[ -f requirements.txt ]]; then
+              echo "Installing requirements.txt"
+              pip install -r requirements.txt
+            fi
+
+            if [[ -f test-requirements.txt ]]; then
+              echo "Installing test-requirements.txt"
+              pip install -r test-requirements.txt
+            fi
+
+            deactivate
+
+            popd
+          done
+
+      - name: Lint with Black
+        run: |
+          cd ${LAMBDA_DIR}
+          black . --check
+
+      - name: Test with pytest
+        run: |
+          cd ${LAMBDA_DIR}
+
+          echo $PWD
+          python -m venv .venv
+          source .venv/bin/activate
+
+          pip install -r test-requirements.txt
+          pytest .
+
+
+  lambda_packaging:
+    name: "Lambda Packaging"
+    runs-on: ubuntu-latest
+    needs:
+      - prerequisites
+      - lambda_tests
+      - terraform_apply
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-west-2
+
+      - name: Build and Push to ECR
+        id: lambda_packaging
+        working-directory: ${{ env.LAMBDA_DIR }}
+        run: |
+          aws ecr get-login-password --region ${{ vars.TF_BACKEND_REGION }} | docker login --username AWS --password-stdin ${{ vars.ACCOUNT_ID }}.dkr.ecr.${{ vars.TF_BACKEND_REGION }}.amazonaws.com  
+          docker build --platform linux/amd64 -t ${{ vars.ACCOUNT_ID }}.dkr.ecr.${{ vars.TF_BACKEND_REGION }}.amazonaws.com/ultrawide-wallpapers:latest . 
+          docker push ${{ vars.ACCOUNT_ID }}.dkr.ecr.${{ vars.TF_BACKEND_REGION }}.amazonaws.com/ultrawide-wallpapers:latest
+          aws lambda update-function-code --function-name  ultrawide-wallpapers-lambda --image-uri ${{ vars.ACCOUNT_ID }}.dkr.ecr.${{ vars.TF_BACKEND_REGION }}.amazonaws.com/ultrawide-wallpapers:latest

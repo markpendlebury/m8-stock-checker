@@ -1,6 +1,6 @@
 resource "aws_lambda_function" "lambda" {
   function_name    = "${var.service_name}-lambda"
-  image_uri        = "${aws_ecr_repository.ecr.repository_url}:latest"
+  image_uri        = "${data.aws_ecr_repository.ecr.repository_url}:latest"
   package_type     = "Image"
   timeout          = var.timeout
   memory_size      = var.memory_size

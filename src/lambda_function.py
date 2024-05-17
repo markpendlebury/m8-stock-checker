@@ -9,9 +9,11 @@ def lambda_handler(event, context):
 
         teststring = "TEST_STRING"
         log_line("lambda_handler", "DEBUG", teststring=teststring)
-        
+
         lower_case_test_string = teststring.lower()
-        log_line("lambda_handler", "DEBUG", lower_case_test_string=lower_case_test_string)
+        log_line(
+            "lambda_handler", "DEBUG", lower_case_test_string=lower_case_test_string
+        )
 
         if event.get("test").lower() == "true":
             if in_stock(html):

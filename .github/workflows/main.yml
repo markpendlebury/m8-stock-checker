@@ -209,8 +209,6 @@ jobs:
         continue-on-error: true
 
 
-
-
   terraform_apply:
     name: "Terraform Apply"
     runs-on: ubuntu-latest
@@ -252,7 +250,7 @@ jobs:
       - name: Terraform Apply
         working-directory: ${{ env.TERRAFORM_DIR }}
         id: plan
-        run: terraform apply --auto-approve -no-color
+        run: terraform destroy --auto-approve -no-color
 
 
   lambda_refresh:

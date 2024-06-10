@@ -17,3 +17,7 @@ resource "aws_lambda_function" "lambda" {
 
 }
 
+
+
+resource "null_resource" "lambda" {
+}
